@@ -1,0 +1,49 @@
+services:
+  service-discovery:
+    image: wschaefer42/spring-cloud-service-discovery
+    build:
+      context: ./ServiceDiscovery
+      dockerfile: ../Dockerfile
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  greeting-server:
+    image: wschaefer42/spring-cloud-greeting-server
+    build:
+      context: ./GreetingServer
+      dockerfile: ../Dockerfile
+    ports:
+      - "8172:8172"
+    environment:
+      - eureka.client.serviceUrl.defaultZone=http://service-discovery:8761/eureka/
+    depends_on:
+      service-discovery:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8172/greeting"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  greeting-client:
+    image: wschaefer42/spring-cloud-greeting-client
+    build:
+      context: ./GreetingClient
+      dockerfile: ../Dockerfile
+    environment:
+      - eureka.client.serviceUrl.defaultZone=http://service-discovery:8761/eureka/
+      - app.greeting.url=http://greeting-server:8172/
+    ports:
+      - "8173:8173"
+    depends_on:
+      service-discovery:
+        condition: service_healthy
+      greeting-server:
+        condition: service_healthy
